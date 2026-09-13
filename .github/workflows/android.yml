@@ -1,0 +1,181 @@
+name: Android verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read application version
+        shell: bash
+        run: |
+          VERSION_NAME="$(sed -n 's/^VERSION_NAME=//p' version.properties)"
+          VERSION_CODE="$(sed -n 's/^VERSION_CODE=//p' version.properties)"
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          grep -Eq '^RELEASE_SIGNER_SHA256=[0-9a-f]{64}$' version.properties
+          printf 'VERSION_NAME=%s\n' "$VERSION_NAME" >> "$GITHUB_ENV"
+          printf 'VERSION_CODE=%s\n' "$VERSION_CODE" >> "$GITHUB_ENV"
+
+      - name: Check repository hygiene
+        shell: bash
+        run: |
+          git diff --check
+          sh -n scripts/*.sh
+          if git ls-files | grep -E '(\.apk|\.aab|\.fit|\.p12|\.pfx|\.jks|\.keystore)$|(^|/)(keystore\.properties|local\.properties|\.env)$'; then
+            echo "A private or generated artifact is tracked" >&2
+            exit 1
+          fi
+          if git ls-files | grep -E '(^|/)(SESSION_INFO\.txt|HARDWARE_TEST_RECORD\.md|APK_(BADGING|MANIFEST|SIGNATURE)\.txt|INSTALLED_APK_(PULL|BADGING|MANIFEST|SIGNATURE)\.txt|DEVICE_INFO\.txt|PACKAGE_(BEFORE|AFTER)\.txt|SERVICES_(BEFORE|AFTER)\.txt|MEMORY_(BEFORE|AFTER)\.txt|KAROO_BATTERY_(BEFORE|AFTER)\.txt|VITALBREATHE_LOGCAT\.txt|LOGCAT_STDERR\.txt)$'; then
+            echo "A private hardware-capture file is tracked" >&2
+            exit 1
+          fi
+          MAC_HOME_PATTERN="$(printf '/%s/' Users)"
+          WINDOWS_HOME_PATTERN="[A-Za-z]:\\\\$(printf '%s' 'Users')\\\\"
+          if git grep -n -E "($MAC_HOME_PATTERN|$WINDOWS_HOME_PATTERN)" -- ':!gradle/verification-metadata.xml'; then
+            echo "A machine-specific user path is tracked" >&2
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17.0.20"
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Test, lint, and build
+        run: ./gradlew test lintDebug verifyPublicReleaseMetadata assembleDebug assembleRelease --dependency-verification=strict --no-daemon
+
+      - name: Confirm the ordinary release is clearly unsigned
+        run: |
+          UNSIGNED_APK="app/build/outputs/apk/release/vitalbreathe-karoo-$VERSION_NAME-unsigned.apk"
+          test -f "$UNSIGNED_APK"
+          if "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$UNSIGNED_APK"; then
+            echo "The no-key release unexpectedly verified as signed" >&2
+            exit 1
+          fi
+
+      - name: Confirm signed release fails closed without a key
+        run: |
+          if ./scripts/signed-release.sh > "$RUNNER_TEMP/signed-release-negative.log" 2>&1; then
+            cat "$RUNNER_TEMP/signed-release-negative.log"
+            echo "signedRelease unexpectedly succeeded without a signing key" >&2
+            exit 1
+          fi
+          grep -Fq "keystore.properties is required for signedRelease" "$RUNNER_TEMP/signed-release-negative.log"
+          test ! -e dist
+
+      - name: Clear stale output even when Gradle fails before release tasks
+        run: |
+          mkdir -p dist
+          printf 'stale candidate\n' > dist/stale.apk
+          printf "throw new GradleException('simulated pre-task failure')\n" > "$RUNNER_TEMP/signed-release-startup-failure.gradle"
+          if ./scripts/signed-release.sh \
+            --init-script "$RUNNER_TEMP/signed-release-startup-failure.gradle" \
+            > "$RUNNER_TEMP/signed-release-startup-failure.log" 2>&1; then
+            cat "$RUNNER_TEMP/signed-release-startup-failure.log"
+            echo "signed release unexpectedly survived a pre-task Gradle failure" >&2
+            exit 1
+          fi
+          grep -Fq "simulated pre-task failure" "$RUNNER_TEMP/signed-release-startup-failure.log"
+          test ! -e dist
+
+      - name: Create a disposable signing identity for release-workflow testing
+        env:
+          TEST_KEYSTORE: ${{ runner.temp }}/vitalbreathe-ci-test.p12
+          TEST_PASSWORD: vitalbreathe-ci-test-only
+        run: |
+          keytool -genkeypair \
+            -keystore "$TEST_KEYSTORE" \
+            -storetype PKCS12 \
+            -storepass "$TEST_PASSWORD" \
+            -keypass "$TEST_PASSWORD" \
+            -alias vitalbreathe \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 2 \
+            -dname "CN=VitalBreathe CI Test" \
+            -noprompt
+          CERT_SHA256="$(keytool -list -v \
+            -keystore "$TEST_KEYSTORE" \
+            -storepass "$TEST_PASSWORD" \
+            -alias vitalbreathe \
+            | sed -n 's/^[[:space:]]*SHA256: //p' \
+            | tr -d ':\r\n ' \
+            | tr '[:upper:]' '[:lower:]')"
+          test "${#CERT_SHA256}" -eq 64
+          printf 'CI_RELEASE_SIGNER_SHA256=%s\n' "$CERT_SHA256" >> "$GITHUB_ENV"
+          {
+            printf 'storeFile=%s\n' "$TEST_KEYSTORE"
+            printf 'storePassword=%s\n' "$TEST_PASSWORD"
+            printf 'keyAlias=vitalbreathe\n'
+            printf 'keyPassword=%s\n' "$TEST_PASSWORD"
+          } > keystore.properties
+
+      - name: Reject a dirty source tree without leaving a candidate
+        run: |
+          printf 'uncommitted release input\n' > vitalbreathe-dirty-release-sentinel
+          if ./scripts/signed-release.sh -PciReleaseSignerSha256="$CI_RELEASE_SIGNER_SHA256" > "$RUNNER_TEMP/signed-release-dirty.log" 2>&1; then
+            cat "$RUNNER_TEMP/signed-release-dirty.log"
+            echo "signedRelease unexpectedly accepted a dirty source tree" >&2
+            exit 1
+          fi
+          grep -Fq "Signed release requires a clean Git source tree" "$RUNNER_TEMP/signed-release-dirty.log"
+          test ! -e dist
+          rm vitalbreathe-dirty-release-sentinel
+
+      - name: Exercise the signed release workflow
+        run: |
+          ./scripts/signed-release.sh -PciReleaseSignerSha256="$CI_RELEASE_SIGNER_SHA256"
+          cd dist
+          sha256sum -c "vitalbreathe-karoo-$VERSION_NAME.apk.sha256"
+          test -s SIGNER_CERT_SHA256.txt
+          grep -Fq 'sourceTree=clean' RELEASE_INFO.txt
+          grep -Fq "buildIdentity=versionName=$VERSION_NAME;versionCode=$VERSION_CODE;sourceRevision=${GITHUB_SHA};sourceTree=clean;buildType=release" RELEASE_INFO.txt
+
+      - name: Reject a mismatched signing fingerprint without leaving a candidate
+        run: |
+          if ./scripts/signed-release.sh -PciReleaseSignerSha256=0000000000000000000000000000000000000000000000000000000000000000 > "$RUNNER_TEMP/signed-release-fingerprint.log" 2>&1; then
+            cat "$RUNNER_TEMP/signed-release-fingerprint.log"
+            echo "signedRelease unexpectedly accepted the wrong signing fingerprint" >&2
+            exit 1
+          fi
+          grep -Fq "Signed release signer does not match the fingerprint pinned in version.properties" "$RUNNER_TEMP/signed-release-fingerprint.log"
+          test ! -e dist
+
+      - name: Verify APK package
+        run: |
+          APK_PATH="app/build/outputs/apk/debug/vitalbreathe-karoo-$VERSION_NAME.apk"
+          ./gradlew lintDebug assembleDebug --dependency-verification=strict --no-daemon
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK_PATH"
+          "$ANDROID_HOME/build-tools/34.0.0/zipalign" -c 4 "$APK_PATH"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging "$APK_PATH" | grep -Fq "package: name='com.moraybrown.vitalbreathe' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump xmltree "$APK_PATH" --file AndroidManifest.xml | grep -Fq "versionName=$VERSION_NAME;versionCode=$VERSION_CODE;sourceRevision=${GITHUB_SHA};sourceTree=clean;buildType=debug"
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vitalbreathe-lint-report
+          retention-days: 90
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn

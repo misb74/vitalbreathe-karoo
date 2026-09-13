@@ -1,0 +1,15 @@
+{
+  "label": "VitalBreathe",
+  "packageName": "com.moraybrown.vitalbreathe",
+  "iconUrl": "https://github.com/misb74/vitalbreathe-karoo/releases/latest/download/icon.png",
+  "latestApkUrl": "https://github.com/misb74/vitalbreathe-karoo/releases/latest/download/vitalbreathe-karoo-1.0.0-beta.1.apk",
+  "latestVersion": "1.0.0-beta.1",
+  "latestVersionCode": 10007,
+  "developer": "Moray Brown",
+  "description": "Live Tymewear VitalPro breathing data, ventilation zones, a five-minute graph, and FIT recording for Hammerhead Karoo. For training information only; not medical use.",
+  "releaseNotes": "First public beta, built on the signed test line exercised on Karoo 3 with a live dashboard, five-minute graph, automatic sensor recovery, VitalPro battery, and strict FIT decoding. The final Beta.1 package still needs its candidate-specific hardware check. Treat readings as training information, not medical advice. See VALIDATION.md for the exact evidence and remaining test coverage.",
+  "screenshotUrls": [
+    "https://raw.githubusercontent.com/misb74/vitalbreathe-karoo/main/docs/screenshots/dashboard-full.png",
+    "https://raw.githubusercontent.com/misb74/vitalbreathe-karoo/main/docs/screenshots/ve-graph.png"
+  ]
+}

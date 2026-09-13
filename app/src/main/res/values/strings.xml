@@ -1,0 +1,46 @@
+<resources>
+    <string name="app_name">VitalBreathe</string>
+    <string name="extension_name">VitalBreathe</string>
+    <string name="value_unavailable">—</string>
+    <string name="unit_brpm">brpm</string>
+    <string name="unit_litre">L</string>
+    <string name="unit_percent">%</string>
+    <string name="label_ve">VE</string>
+    <string name="label_mi">MI</string>
+    <string name="dashboard_ve_unit">VE30 L/min</string>
+    <string name="dashboard_zones_off">zones off</string>
+    <string name="dashboard_br_unavailable">BR —</string>
+    <string name="dashboard_tv_unavailable">TV —</string>
+    <string name="dashboard_hr_unavailable">HR —</string>
+    <string name="dashboard_battery_unavailable">BAT —</string>
+
+    <string name="dashboard_name">Vital Dashboard</string>
+    <string name="dashboard_desc">VE30 zone, breathing rate, tidal volume, heart rate and strap battery</string>
+
+    <string name="ve_name">VE</string>
+    <string name="ve_desc">Minute ventilation (VE) in L/min</string>
+
+    <string name="ve_graph_name">VE Graph</string>
+    <string name="ve_graph_desc">Five-minute VE graph in L/min; tap to cycle 15, 30 and 60 second averages</string>
+    <string name="ve_graph_chart_accessibility">Five-minute ventilation history graph in litres per minute. Tap to cycle 15, 30 and 60 second averages.</string>
+
+    <string name="br_name">BR</string>
+    <string name="br_desc">Breathing rate in breaths/min</string>
+
+    <string name="tv_name">TV</string>
+    <string name="tv_desc">Tidal volume per breath in L</string>
+
+    <string name="mi_name">MI %</string>
+    <string name="mi_desc">Experimental Mobilization Index percentage; requires personal settings</string>
+
+    <string name="mi_bat_name">MI Reserve</string>
+    <string name="mi_bat_desc">Experimental reserve estimate derived from Mobilization Index</string>
+    <string name="mi_reserve_chart_accessibility">Mobilization reserve chart</string>
+
+    <string name="vp_battery_name">VitalPro Battery</string>
+    <string name="vp_battery_desc">VitalPro strap battery percentage</string>
+
+    <string name="ve_zones_name">VE Zones</string>
+    <string name="ve_zones_desc">Time spent in each ventilation zone</string>
+    <string name="ve_zones_chart_accessibility">Time in ventilation zones chart</string>
+</resources>

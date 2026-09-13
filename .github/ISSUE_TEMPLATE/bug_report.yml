@@ -1,0 +1,97 @@
+name: Bug report
+description: Tell us what went wrong on your Karoo so we can reproduce it.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve VitalBreathe.
+
+        Do not attach raw FIT files, raw logs, routes or other location data, Bluetooth addresses, sensor IDs, or private health data to a public issue. Redact anything sensitive first. If the report concerns a security weakness or cannot be described safely in public, use [GitHub private vulnerability reporting](https://github.com/misb74/vitalbreathe-karoo/security/advisories/new).
+
+  - type: input
+    id: build
+    attributes:
+      label: App build line
+      description: Copy the complete Build line from the VitalBreathe settings screen.
+      placeholder: "Build 1.0.0-beta.1 (10007) · abc123def456 · release"
+    validations:
+      required: true
+
+  - type: input
+    id: karoo
+    attributes:
+      label: Karoo model and KOS version
+      description: Include both the device model and the software version shown by Karoo.
+      placeholder: "Karoo 3 · KOS 1.x"
+    validations:
+      required: true
+
+  - type: input
+    id: vitalpro
+    attributes:
+      label: VitalPro model and firmware
+      description: Include the strap size or model and firmware version. Write "Unknown" if the firmware is not available.
+      placeholder: "VitalPro Regular · firmware 1.x"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Start from opening VitalBreathe or beginning the ride and list the shortest reliable sequence.
+      placeholder: |
+        1. Wear and wake the VitalPro.
+        2. Start a ride with the Vital Dashboard visible.
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: Describe what VitalBreathe should have shown or recorded.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Include any visible message and whether the app recovered by itself.
+      placeholder: Describe what you saw, without including private ride or sensor information.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Often
+        - Sometimes
+        - Once
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: sanitized_context
+    attributes:
+      label: Additional, sanitised context
+      description: Add a cropped screenshot or short redacted log excerpt only if it contains no personal data.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed raw FIT data, raw logs, location data, Bluetooth addresses, sensor IDs, and private health information.
+          required: true
+        - label: I have checked existing issues for the same problem.
+          required: true
