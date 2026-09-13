@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- VitalBreathe teal -->
+    <path
+        android:fillColor="#0F766E"
+        android:pathData="M12,0C5.37,0 0,5.37 0,12C0,18.63 5.37,24 12,24C18.63,24 24,18.63 24,12C24,5.37 18.63,0 12,0Z" />
+
+    <!-- A combined breath and vital waveform -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M4,12L6.75,12L8.5,8.13L10.88,16.5L13.5,9.63L15.25,12L20,12"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.65" />
+</vector>

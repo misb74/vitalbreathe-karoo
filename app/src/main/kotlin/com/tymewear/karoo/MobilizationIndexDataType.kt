@@ -1,0 +1,212 @@
+package com.tymewear.karoo
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.widget.RemoteViews
+import io.hammerhead.karooext.extension.DataTypeImpl
+import io.hammerhead.karooext.internal.ViewEmitter
+import io.hammerhead.karooext.models.ViewConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+
+/**
+ * MI Percentage display — large percentage text with color-coded background.
+ */
+@OptIn(FlowPreview::class)
+class MobilizationIndexDataType(extension: String) : DataTypeImpl(extension, "mi") {
+
+    override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + Constants.coroutineExceptionHandler)
+        val valueSize = config.textSize * 0.6f
+        val unitSize = config.textSize * 0.25f
+        scope.launch {
+            TymewearData.presentationSnapshot.sample(1000L).collect { snapshot ->
+                val mi = snapshot?.mobilizationIndex ?: 0.0
+                val hr = snapshot?.heartRate ?: 0.0
+                val br = snapshot?.smoothBreathRate ?: 0.0
+                val hasHr = hr > 0.0
+                val hasBr = br > 0.0
+                val hrr = snapshot?.percentHrr ?: 0.0
+                val miConfigured = snapshot?.miConfigured == true
+                val rv = RemoteViews(context.packageName, R.layout.view_mi_percentage)
+
+                val displayValue: String
+                val unitLabel: String
+                val bgColor: Int
+                when {
+                    !hasBr -> {
+                        displayValue = "—"
+                        unitLabel = ""
+                        bgColor = Constants.NO_DATA_COLOR
+                    }
+                    !miConfigured -> {
+                        displayValue = "MI off"
+                        unitLabel = ""
+                        bgColor = Constants.NO_DATA_COLOR
+                    }
+                    !hasHr -> {
+                        displayValue = "no HR"
+                        unitLabel = ""
+                        bgColor = Constants.NO_DATA_COLOR
+                    }
+                    hrr < 10.0 -> {
+                        displayValue = "idle"
+                        unitLabel = ""
+                        bgColor = Constants.NO_DATA_COLOR
+                    }
+                    else -> {
+                        val rounded = mi.roundToInt()
+                        displayValue = if (rounded > 100) ">100" else "$rounded"
+                        unitLabel = "%"
+                        bgColor = miColor(mi)
+                    }
+                }
+                rv.setTextViewText(R.id.text_mi_value, displayValue)
+                rv.setTextViewText(R.id.text_mi_label, unitLabel)
+                rv.setFloat(R.id.text_mi_value, "setTextSize", valueSize)
+                rv.setFloat(R.id.text_mi_label, "setTextSize", unitSize)
+                rv.setInt(R.id.mi_container, "setBackgroundColor", bgColor)
+
+                emitter.updateView(rv)
+            }
+        }
+        emitter.setCancellable { scope.cancel() }
+    }
+
+    companion object {
+        fun miColor(mi: Double): Int = when {
+            mi < 50 -> Color.parseColor("#2E7D32")   // Green
+            mi < 75 -> Color.parseColor("#F57F17")    // Amber
+            mi < 90 -> Color.parseColor("#EF6C00")    // Orange
+            else -> Color.parseColor("#C62828")        // Red
+        }
+    }
+}
+
+/**
+ * MI Battery display — battery gauge showing remaining breathing reserve.
+ * Uses Canvas→Bitmap→ImageView pattern (same as VeGraphDataType).
+ */
+@OptIn(FlowPreview::class)
+class MiBatteryDataType(extension: String) : DataTypeImpl(extension, "mi_bat") {
+
+    companion object {
+        fun renderBattery(bitmap: Bitmap, mi: Double, hasData: Boolean) {
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.BLACK)
+
+            // Battery body outline
+            val outlinePaint = Paint().apply {
+                color = Color.argb(200, 255, 255, 255)
+                style = Paint.Style.STROKE
+                strokeWidth = 3f
+                isAntiAlias = true
+            }
+            canvas.drawRoundRect(RectF(10f, 10f, 260f, 140f), 12f, 12f, outlinePaint)
+
+            // Nub terminal on right
+            val nubPaint = Paint().apply {
+                color = Color.argb(200, 160, 160, 160)
+                style = Paint.Style.FILL
+                isAntiAlias = true
+            }
+            canvas.drawRoundRect(RectF(260f, 45f, 280f, 105f), 6f, 6f, nubPaint)
+
+            if (hasData) {
+                val remaining = (100.0 - mi).coerceIn(0.0, 100.0)
+                val innerWidth = 240f // 260 - 10 - 10, with 5px padding each side
+                val fillWidth = (remaining / 100.0 * innerWidth).toFloat()
+
+                if (fillWidth > 0f) {
+                    val fillPaint = Paint().apply {
+                        color = MobilizationIndexDataType.miColor(mi)
+                        style = Paint.Style.FILL
+                        isAntiAlias = true
+                    }
+                    canvas.drawRoundRect(
+                        RectF(15f, 15f, 15f + fillWidth, 135f),
+                        8f, 8f, fillPaint,
+                    )
+                }
+
+                // MI >= 100: red tint on empty battery interior
+                if (mi >= 100.0) {
+                    val tintPaint = Paint().apply {
+                        color = Color.argb(40, 198, 40, 40)
+                        style = Paint.Style.FILL
+                    }
+                    canvas.drawRoundRect(RectF(15f, 15f, 255f, 135f), 8f, 8f, tintPaint)
+                }
+            } else {
+                // No data: subtle dark interior
+                val emptyPaint = Paint().apply {
+                    color = Color.argb(25, 255, 255, 255)
+                    style = Paint.Style.FILL
+                }
+                canvas.drawRoundRect(RectF(15f, 15f, 255f, 135f), 8f, 8f, emptyPaint)
+            }
+        }
+    }
+
+    override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + Constants.coroutineExceptionHandler)
+        val bitmap = Bitmap.createBitmap(Constants.MI_BATTERY_WIDTH, Constants.MI_BATTERY_HEIGHT, Bitmap.Config.ARGB_8888)
+        scope.launch {
+            TymewearData.presentationSnapshot.sample(1000L).collect { snapshot ->
+                val mi = snapshot?.mobilizationIndex ?: 0.0
+                val hr = snapshot?.heartRate ?: 0.0
+                val br = snapshot?.smoothBreathRate ?: 0.0
+                val hasHr = hr > 0.0
+                val hasBr = br > 0.0
+                val hrr = snapshot?.percentHrr ?: 0.0
+                val miConfigured = snapshot?.miConfigured == true
+                val rv = RemoteViews(context.packageName, R.layout.view_mi_battery)
+
+                val displayValue: String
+                val hasData: Boolean
+                when {
+                    !hasBr -> {
+                        displayValue = "—"
+                        hasData = false
+                    }
+                    !miConfigured -> {
+                        displayValue = "MI off"
+                        hasData = false
+                    }
+                    !hasHr -> {
+                        displayValue = "no HR"
+                        hasData = false
+                    }
+                    hrr < 10.0 -> {
+                        displayValue = "idle"
+                        hasData = false
+                    }
+                    else -> {
+                        val remaining = (100.0 - mi).coerceIn(0.0, 100.0).roundToInt()
+                        displayValue = "$remaining%"
+                        hasData = true
+                    }
+                }
+
+                renderBattery(bitmap, mi, hasData)
+                rv.setImageViewBitmap(R.id.mi_battery_image, bitmap)
+                rv.setTextViewText(R.id.text_mi_battery_value, displayValue)
+
+                emitter.updateView(rv)
+            }
+        }
+        emitter.setCancellable {
+            scope.cancel()
+        }
+    }
+}

@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+*.bat text eol=crlf
+
+*.apk binary
+*.aab binary
+*.ap_ binary
+*.dex binary
+*.fit binary
+*.jar binary
+*.jpg binary
+*.jpeg binary
+*.keystore binary
+*.p12 binary
+*.pfx binary
+*.png binary
+
+karoo-ext/** linguist-vendored
+gradle/verification-metadata.xml linguist-generated=true

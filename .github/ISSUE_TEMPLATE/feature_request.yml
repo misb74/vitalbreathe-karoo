@@ -1,0 +1,98 @@
+name: Feature request
+description: Suggest an improvement that would make VitalBreathe more useful.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. Please describe the rider's problem before proposing an implementation.
+
+        Do not attach raw FIT files, raw logs, routes or other location data, Bluetooth addresses, sensor IDs, or private health data. Report security-sensitive ideas through [GitHub private vulnerability reporting](https://github.com/misb74/vitalbreathe-karoo/security/advisories/new).
+
+  - type: input
+    id: build
+    attributes:
+      label: App build line
+      description: Copy the complete Build line from VitalBreathe settings, or write "Not installed yet".
+      placeholder: "Build 1.0.0-beta.1 (10007) · abc123def456 · release"
+    validations:
+      required: true
+
+  - type: input
+    id: karoo
+    attributes:
+      label: Karoo model and KOS version
+      description: Include both values, or write "Not applicable" for a general proposal.
+      placeholder: "Karoo 3 · KOS 1.x"
+    validations:
+      required: true
+
+  - type: input
+    id: vitalpro
+    attributes:
+      label: VitalPro model and firmware
+      description: Include both values. Write "Unknown" or "Not applicable" when needed.
+      placeholder: "VitalPro Regular · firmware 1.x"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What rider problem would this solve?
+      placeholder: Explain when the problem appears and why the current experience is difficult.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Current workflow or steps
+      description: Show how the limitation appears today so another contributor can reproduce the need.
+      placeholder: |
+        1. Open or start ...
+        2. Select ...
+        3. The current experience ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a great outcome look like?
+      placeholder: Describe the behaviour you would like to see on the Karoo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried instead?
+      description: Optional. Mention current workarounds or similar behaviour in another cycling app.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of VitalBreathe is this about?
+      options:
+        - Dashboard or data fields
+        - VE graph
+        - Ventilation zones
+        - FIT recording
+        - Bluetooth connection
+        - Setup or documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Final checks
+      options:
+        - label: I have checked existing issues and discussions for this idea.
+          required: true
+        - label: This request contains no raw FIT data, raw logs, location data, Bluetooth details, sensor IDs, or private health data.
+          required: true

@@ -1,0 +1,43 @@
+package com.tymewear.karoo
+
+import android.content.Context
+import android.widget.RemoteViews
+import io.hammerhead.karooext.extension.DataTypeImpl
+import io.hammerhead.karooext.internal.ViewEmitter
+import io.hammerhead.karooext.models.ViewConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+
+/**
+ * Graphical data type showing breathing rate (breaths/min) from the VitalPro sensor.
+ */
+@OptIn(FlowPreview::class)
+class BreathingRateDataType(extension: String) : DataTypeImpl(extension, "br") {
+
+    override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + Constants.coroutineExceptionHandler)
+        val valueSize = config.textSize * 0.6f
+        val unitSize = config.textSize * 0.25f
+
+        scope.launch {
+            TymewearData.smoothBreathRate.sample(1000L).collect { br ->
+                val remoteViews = RemoteViews(context.packageName, R.layout.view_breathing_rate)
+
+                val displayValue = if (br > 0) br.roundToInt().toString() else "—"
+                remoteViews.setTextViewText(R.id.text_br_value, displayValue)
+                remoteViews.setFloat(R.id.text_br_value, "setTextSize", valueSize)
+                remoteViews.setFloat(R.id.text_br_unit, "setTextSize", unitSize)
+
+                emitter.updateView(remoteViews)
+            }
+        }
+
+        emitter.setCancellable { scope.cancel() }
+    }
+}
