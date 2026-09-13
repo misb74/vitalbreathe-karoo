@@ -12,7 +12,7 @@ kotlinxSerialization = "1.6.3"
 timber = "5.0.1"
 junit = "4.13.2"
 robolectric = "4.17"
-robolectricAndroidAll = "14-robolectric-10818077-i7"
+robolectricAndroidAll = "17-robolectric-15733970-i7"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
